@@ -1,0 +1,3 @@
+*.pyc
+launchbase/_version.py
+*.egg-info
