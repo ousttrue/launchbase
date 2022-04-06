@@ -1,13 +1,8 @@
-from typing import NamedTuple, List, Optional, Tuple, Hashable
+from typing import List, Optional, Tuple, Hashable
 import pathlib
 import prompt_toolkit.utils
-from wcwidth import wcswidth
+import prompt_toolkit.formatted_text
 from . import itemlist
-
-
-class FileItem(NamedTuple):
-    path: pathlib.Path
-    name_wc: int
 
 
 class FileList(itemlist.ItemList):
@@ -15,76 +10,29 @@ class FileList(itemlist.ItemList):
     def __init__(self, width: int) -> None:
         self.dir: Optional[pathlib.Path] = None
         self.invalidated = prompt_toolkit.utils.Event(self)
-        self.items: List[FileItem] = []
-        self._text_cache = None
+        self.items: List[pathlib.Path] = []
         self.width = width
         self.selected_index = 0
 
-    def get_list(self) -> Tuple[Hashable, List['itemlist.Item']]:
-        return self.dir, self.items
-
-    def __len__(self) -> int:
-        return len(self.items)
-
-    def __getitem__(self, i: int) -> Optional[pathlib.Path]:
-        if i < 0 or i >= len(self.items):
-            return None
-        return self.items[i][0]
+    def get_list(self) -> Tuple[Hashable, prompt_toolkit.formatted_text.AnyFormattedText]:
+        def to_text(f: pathlib.Path) -> Tuple[str, str]:
+            if f.is_symlink():
+                if f.is_dir():
+                    return ('class:linkdir', ' ' + f.name)
+                else:
+                    return ('class:linkfile', ' ' + f.name)
+            else:
+                if f.is_dir():
+                    return ('class:dir', ' ' + f.name)
+                else:
+                    return ('class:file', ' ' + f.name)
+        return self.dir, [to_text(item) for item in self.items]
 
     @property
     def selected(self) -> Optional[pathlib.Path]:
         if self.selected_index < 0 or self.selected_index >= len(self.items):
             return None
-        return self.items[self.selected_index].path
-
-    def get_text(self) -> List[Tuple[str, str]]:
-        if not self.dir:
-            return []
-
-        if self.width == 0:
-            return []
-
-        if not isinstance(self._text_cache, list):
-
-            def wc_padding(text, length):
-                return text + ' ' * max(
-                    0, (max(self.max_wc, self.width - 2) - length))
-
-            def to_text(f: pathlib.Path, length: int) -> Tuple[str, str]:
-                if f.is_symlink():
-                    if f.is_dir():
-                        return ('class:linkdir',
-                                ' ' + wc_padding(f.name, length) + '\n')
-                    else:
-                        return ('class:linkfile',
-                                ' ' + wc_padding(f.name, length) + '\n')
-                else:
-                    if f.is_dir():
-                        return ('class:dir',
-                                ' ' + wc_padding(f.name, length) + '\n')
-                    else:
-                        return ('class:file',
-                                ' ' + wc_padding(f.name, length) + '\n')
-
-            self._text_cache = []
-            for f, l in self.items:
-                fragment = to_text(f, l)
-                new_len = len(fragment[1])
-                # assert(new_len == self.width)
-                self._text_cache.append(fragment)
-
-        return self._text_cache
-
-    def set_width(self, w):
-        if w == self.width:
-            return
-        self.width = w
-        self._text_cache = None
-
-        def fire():
-            self.invalidated.fire()
-
-        asyncio.get_event_loop().call_soon_threadsafe(fire)
+        return self.items[self.selected_index]
 
     def chdir(self, dir: pathlib.Path, select_target: Optional[pathlib.Path]):
         dir = dir.absolute()
@@ -95,13 +43,11 @@ class FileList(itemlist.ItemList):
         assert (dir.is_dir())
         items = []
         for i, f in enumerate(dir.iterdir()):
-            items.append(FileItem(f, wcswidth(f.name)))
+            items.append(f)
             if f == select_target:
                 self.selected_index = i
         self.dir = dir
-        self.items = items
-        self.max_wc = max(l for f, l in self.items) if self.items else 0
-        self._text_cache = None
+        self.items = sorted(items, key=lambda item: item.name)
         if select_target is None:
             self.selected_index = 0
         self.invalidated.fire()
@@ -113,7 +59,7 @@ class FileList(itemlist.ItemList):
         self.chdir(self.dir.parent, self.dir)
 
     def go_selected(self, e):
-        item = self.items[self.selected_index][0]
+        item = self.items[self.selected_index]
         if item and item.is_dir():
             try:
                 self.chdir(item, None)
