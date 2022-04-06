@@ -1,7 +1,8 @@
-from typing import NamedTuple, List, Optional, Tuple
+from typing import NamedTuple, List, Optional, Tuple, Hashable
 import pathlib
 import prompt_toolkit.utils
 from wcwidth import wcswidth
+from . import itemlist
 
 
 class FileItem(NamedTuple):
@@ -9,7 +10,7 @@ class FileItem(NamedTuple):
     name_wc: int
 
 
-class FileList:
+class FileList(itemlist.ItemList):
 
     def __init__(self, width: int) -> None:
         self.dir: Optional[pathlib.Path] = None
@@ -18,6 +19,9 @@ class FileList:
         self._text_cache = None
         self.width = width
         self.selected_index = 0
+
+    def get_list(self) -> Tuple[Hashable, List['itemlist.Item']]:
+        return self.dir, self.items
 
     def __len__(self) -> int:
         return len(self.items)

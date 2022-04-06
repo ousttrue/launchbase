@@ -29,9 +29,15 @@ async def launch():
         e.app.exit()
 
     from .layout.selector import Selector
-    selector = prompt_toolkit.layout.Window(Selector(kb, fl),
-                                            width=FL_WIDTH,
-                                            always_hide_cursor=True)
+    selector = Selector(kb, fl)
+    selector.keybind(fl.go_parent, 'left')
+    selector.keybind(fl.go_parent, 'h')
+    selector.keybind(fl.go_selected, 'l')
+    selector.keybind(fl.go_selected, 'enter')
+    selector.keybind(fl.up, 'up')
+    selector.keybind(fl.up, 'k')
+    selector.keybind(fl.down, 'down')
+    selector.keybind(fl.down, 'j')
 
     from .layout.preview import Preview
     preview = Preview()
@@ -56,7 +62,9 @@ async def launch():
         prompt_toolkit.widgets.FormattedTextToolbar(lambda: f'{fl.dir}',
                                                     'class:addressbar'),
         prompt_toolkit.layout.VSplit([
-            selector,
+            prompt_toolkit.layout.Window(selector,
+                                         width=FL_WIDTH,
+                                         always_hide_cursor=True),
             prompt_toolkit.layout.Window(char='|', width=1),
             preview,
         ])

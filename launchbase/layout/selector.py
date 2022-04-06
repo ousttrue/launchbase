@@ -2,14 +2,17 @@ from typing import Iterable, List, Tuple, Optional, cast
 import pathlib
 import prompt_toolkit.layout
 import prompt_toolkit.utils
-from .filelist import FileList
+import prompt_toolkit.key_binding
+import prompt_toolkit.data_structures
+import prompt_toolkit.filters
+from .itemlist import ItemList
 
 
 class Selector(prompt_toolkit.layout.FormattedTextControl):
 
     def __init__(self, kb: prompt_toolkit.key_binding.KeyBindings,
-                 items: FileList) -> None:
-        super().__init__(items.get_text,
+                 items: ItemList) -> None:
+        super().__init__(self.get_text,
                          focusable=True,
                          get_cursor_position=lambda: prompt_toolkit.
                          data_structures.Point(0, self.items.selected_index))
@@ -17,17 +20,12 @@ class Selector(prompt_toolkit.layout.FormattedTextControl):
         self.items = items
         self.kb = kb
 
-        self._keybind(self.items.go_parent, 'left')
-        self._keybind(self.items.go_parent, 'h')
-        self._keybind(self.items.go_selected, 'l')
-        self._keybind(self.items.go_selected, 'enter')
-        self._keybind(self.items.up, 'up')
-        self._keybind(self.items.up, 'k')
-        self._keybind(self.items.down, 'down')
-        self._keybind(self.items.down, 'j')
-
-    def _keybind(self, callback, *args, **kw):
+    def keybind(self, callback, *args, **kw):
         self.kb.add(*args, **kw, filter=self.has_focus)(callback)
+
+    def get_text(self):
+        key, items = self.items.get_list()
+        return self.items.get_text()
 
     def get_invalidate_events(
             self) -> Iterable[prompt_toolkit.utils.Event[object]]:
